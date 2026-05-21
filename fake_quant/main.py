@@ -49,13 +49,15 @@ def main():
                 
     if args.w_bits < 16:
         save_dict = {}
+        # 路径 A：直接加载已经量化好的旋转权重
         if args.load_qmodel_path: # Load Quantized Rotated Model
             assert args.rotate, "Model should be rotated to load a quantized model!"
             assert not args.save_qmodel_path, "Cannot save a quantized model if it is already loaded!"
             print("Load quantized model from ", args.load_qmodel_path)
             save_dict = torch.load(args.load_qmodel_path)
             model.load_state_dict(save_dict["model"])
-            
+        
+        # 路径 B：调用校准集，运行 GPTQ 算法进行 4-bit 量化
         elif not args.w_rtn: # GPTQ Weight Quantization
             assert "llama" in args.model, "Only llama is supported for GPTQ!"
             
@@ -66,6 +68,8 @@ def main():
             )
             quantizers = gptq_utils.gptq_fwrd(model, trainloader, utils.DEV, args)
             save_dict["w_quantizers"] = quantizers
+        
+        # 路径 C：无需校准集，直接暴力进行 RTN (Round-to-Nearest) 量化
         else: # RTN Weight Quantization
             quantizers = gptq_utils.rtn_fwrd(model, utils.DEV, args)
             save_dict["w_quantizers"] = quantizers
